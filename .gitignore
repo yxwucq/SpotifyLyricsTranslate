@@ -1,0 +1,8 @@
+.build/
+.swiftpm/
+SpotifyLyrics.app/
+.claude/
+*.xcodeproj
+xcuserdata/
+DerivedData/
+.DS_Store
