@@ -98,11 +98,14 @@ final class SongMeaningWindowController {
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 400),
-            styleMask: [.titled, .closable, .resizable],
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "歌词大意"
+        window.titlebarAppearsTransparent = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false
@@ -119,20 +122,21 @@ struct SongMeaningView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 16) {
                 if let track = appState.playerMonitor.currentTrack {
-                    Text(track.name)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    Text(track.artist)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    Divider()
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(track.name)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        Text(track.artist)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 20)
                 }
 
                 if appState.isFetchingMeaning {
-                    HStack {
+                    HStack(spacing: 8) {
                         ProgressView()
                             .controlSize(.small)
                         Text("正在解读…")
@@ -143,30 +147,72 @@ struct SongMeaningView: View {
                         .textSelection(.enabled)
 
                     if !meaning.background.isEmpty {
-                        Divider()
-                        DisclosureGroup("创作背景", isExpanded: $showBackground) {
-                            Text(meaning.background)
-                                .textSelection(.enabled)
-                                .padding(.top, 4)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showBackground.toggle()
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .rotationEffect(.degrees(showBackground ? 90 : 0))
+                                    Text("创作背景")
+                                        .fontWeight(.medium)
+                                    Spacer()
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+
+                            if showBackground {
+                                Text(meaning.background)
+                                    .textSelection(.enabled)
+                                    .padding(.top, 8)
+                            }
                         }
+                        .padding(12)
+                        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
                     }
 
                     if !meaning.metaphors.isEmpty {
-                        Divider()
-                        DisclosureGroup("意象与隐喻", isExpanded: $showMetaphors) {
-                            Text(meaning.metaphors)
-                                .textSelection(.enabled)
-                                .padding(.top, 4)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showMetaphors.toggle()
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .rotationEffect(.degrees(showMetaphors ? 90 : 0))
+                                    Text("意象与隐喻")
+                                        .fontWeight(.medium)
+                                    Spacer()
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+
+                            if showMetaphors {
+                                Text(meaning.metaphors)
+                                    .textSelection(.enabled)
+                                    .padding(.top, 8)
+                            }
                         }
+                        .padding(12)
+                        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
                     }
                 } else {
                     Text("暂无解读内容")
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .background(.ultraThinMaterial)
     }
 }
 
@@ -182,11 +228,11 @@ final class SettingsWindowController {
 
         let settingsView = SettingsView()
         let hostingView = NSHostingView(rootView: settingsView)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 450, height: 400)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 450, height: 520)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 450, height: 400),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 450, height: 520),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )

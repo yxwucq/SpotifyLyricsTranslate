@@ -1,4 +1,5 @@
 import SwiftUI
+import NaturalLanguage
 
 @Observable
 final class AppState {
@@ -98,6 +99,9 @@ final class AppState {
     func translateLyrics(track: Track) async {
         let language = AppSettings.targetLanguage
 
+        // Skip translation if lyrics are already in the target language
+        if lyricsMatchTargetLanguage(language) { return }
+
         // Check cache first
         if let cached = await translationCache.get(trackId: track.id, language: language) {
             applyTranslations(cached)
@@ -134,6 +138,30 @@ final class AppState {
         }
 
         statusMessage = "翻译失败: \(lastError?.localizedDescription ?? "未知错误")"
+    }
+
+    private func lyricsMatchTargetLanguage(_ target: String) -> Bool {
+        // Sample non-empty lines for detection
+        let sampleLines = lyrics
+            .map(\.text)
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .prefix(20)
+
+        guard !sampleLines.isEmpty else { return false }
+
+        let text = sampleLines.joined(separator: " ")
+
+        let targetPrefix = target.components(separatedBy: "-").first ?? target  // "zh-Hans" -> "zh"
+
+        // Use NLLanguageRecognizer for detection
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(text)
+        guard let detected = recognizer.dominantLanguage else { return false }
+
+        let detectedCode = detected.rawValue  // e.g. "zh", "en", "ja", "ko"
+
+        // Match: "zh" covers both "zh-Hans" and "zh-Hant"
+        return detectedCode == targetPrefix
     }
 
     private func applyTranslations(_ translations: [String]) {

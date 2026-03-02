@@ -11,7 +11,16 @@ struct LyricsContentView: View {
                 .opacity(backgroundOpacity)
 
             if appState.lyrics.isEmpty {
-                VStack(spacing: 12) {
+                VStack(spacing: 16) {
+                    Image(systemName: "music.note.list")
+                        .font(.system(size: 40, weight: .light))
+                        .foregroundStyle(
+                            .linearGradient(
+                                colors: [.purple, .blue],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                     if !appState.statusMessage.isEmpty {
                         Text(appState.statusMessage)
                             .foregroundStyle(.secondary)
@@ -19,46 +28,32 @@ struct LyricsContentView: View {
                             .multilineTextAlignment(.center)
                     }
                     if appState.isTranslating {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("正在翻译…")
-                            .foregroundStyle(.secondary)
-                            .font(.caption)
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                            Text("正在翻译…")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(.white.opacity(0.08), in: Capsule())
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            Spacer().frame(height: 100)
-
-                            ForEach(appState.lyrics) { line in
-                                LyricLineView(line: line, isActive: line.id == appState.activeLineIndex)
-                                    .id(line.id)
-                            }
-
-                            Spacer().frame(height: 200)
-                        }
-                    }
-                    .onChange(of: appState.activeLineIndex) { _, newIndex in
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            proxy.scrollTo(newIndex, anchor: .center)
-                        }
-                    }
-                }
-
-                // Track info + status overlay at top
-                VStack {
+                VStack(spacing: 0) {
+                    // Track info bar — opaque, not transparent
                     if let track = appState.playerMonitor.currentTrack {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(track.name)
-                                    .font(.caption)
+                                    .font(.callout)
                                     .fontWeight(.semibold)
+                                    .foregroundStyle(.primary)
                                     .lineLimit(1)
                                 Text(track.artist)
-                                    .font(.caption2)
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                             }
@@ -72,10 +67,30 @@ struct LyricsContentView: View {
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(.ultraThinMaterial)
+                        .padding(.vertical, 10)
+                        .background(.thickMaterial)
                     }
-                    Spacer()
+
+                    // Lyrics scroll area
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 0) {
+                                Spacer().frame(height: 20)
+
+                                ForEach(appState.lyrics) { line in
+                                    LyricLineView(line: line, isActive: line.id == appState.activeLineIndex)
+                                        .id(line.id)
+                                }
+
+                                Spacer().frame(height: 200)
+                            }
+                        }
+                        .onChange(of: appState.activeLineIndex) { _, newIndex in
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                proxy.scrollTo(newIndex, anchor: .center)
+                            }
+                        }
+                    }
                 }
             }
         }

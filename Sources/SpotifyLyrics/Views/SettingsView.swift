@@ -7,6 +7,15 @@ struct SettingsView: View {
     @AppStorage("otherLineColor") private var otherLineColorHex = "#AAAAAA"
     @AppStorage("translationColor") private var translationColorHex = "#88CCFF"
     @AppStorage("backgroundOpacity") private var backgroundOpacity: Double = 0.75
+    @AppStorage("lyricAlignment") private var lyricAlignment = "leading"
+    @AppStorage("translationFontScale") private var translationFontScale: Double = 0.8
+    @AppStorage("lineSpacing") private var lineSpacing: Double = 0
+    @AppStorage("activeLineScale") private var activeLineScale: Double = 1.15
+    @AppStorage("activeLineHighlight") private var activeLineHighlight: Bool = true
+    @AppStorage("activeLineHighlightColorHex") private var activeLineHighlightColorHex = "#FFFFFF"
+    @AppStorage("activeLineHighlightOpacity") private var activeLineHighlightOpacity: Double = 0.08
+    @AppStorage("inactiveLineOpacity") private var inactiveLineOpacity: Double = 0.4
+    @AppStorage("barWidth") private var barWidth: Double = 600
     @AppStorage("targetLanguage") private var targetLanguage = "zh-Hans"
     @AppStorage("translationEnabled") private var translationEnabled = true
     @AppStorage("translationProvider") private var translationProvider = TranslationProvider.claude.rawValue
@@ -23,6 +32,8 @@ struct SettingsView: View {
     @State private var currentLineColor: Color = .white
     @State private var otherLineColor: Color = .gray
     @State private var translationLineColor: Color = .blue
+    @State private var highlightColor: Color = .white
+    @State private var showResetConfirm = false
 
     @AppStorage("translationCachePath") private var translationCachePath = ""
 
@@ -39,7 +50,7 @@ struct SettingsView: View {
             appearanceTab.tabItem { Label("外观", systemImage: "paintbrush") }
             credentialsTab.tabItem { Label("凭证", systemImage: "key") }
         }
-        .frame(width: 450, height: 400)
+        .frame(width: 450, height: 520)
         .onAppear { loadCredentials() }
     }
 
@@ -130,6 +141,29 @@ struct SettingsView: View {
         cacheInfo = "\(info.fileCount) 首歌曲，共 \(sizeStr)"
     }
 
+    private func resetAppearance() {
+        fontFamily = "System"
+        fontSize = 20
+        currentLineColorHex = "#FFFFFF"
+        otherLineColorHex = "#AAAAAA"
+        translationColorHex = "#88CCFF"
+        backgroundOpacity = 0.75
+        lyricAlignment = "leading"
+        translationFontScale = 0.8
+        lineSpacing = 0
+        activeLineScale = 1.15
+        activeLineHighlight = true
+        activeLineHighlightColorHex = "#FFFFFF"
+        activeLineHighlightOpacity = 0.08
+        inactiveLineOpacity = 0.4
+        barWidth = 600
+        // sync color pickers
+        currentLineColor = .white
+        otherLineColor = .gray
+        translationLineColor = Color(hex: "#88CCFF") ?? .blue
+        highlightColor = .white
+    }
+
     private var appearanceTab: some View {
         Form {
             Section("字体") {
@@ -143,6 +177,48 @@ struct SettingsView: View {
                 HStack {
                     Text("字号: \(Int(fontSize))pt")
                     Slider(value: $fontSize, in: 12...48, step: 1)
+                }
+            }
+
+            Section("歌词排版") {
+                Picker("对齐方式", selection: $lyricAlignment) {
+                    Text("左对齐").tag("leading")
+                    Text("居中").tag("center")
+                    Text("右对齐").tag("trailing")
+                }
+
+                HStack {
+                    Text("翻译字号: \(Int(translationFontScale * 100))%")
+                    Slider(value: $translationFontScale, in: 0.6...1.0, step: 0.05)
+                }
+
+                HStack {
+                    Text("行间距: \(Int(lineSpacing))pt")
+                    Slider(value: $lineSpacing, in: 0...20, step: 1)
+                }
+            }
+
+            Section("当前行效果") {
+                HStack {
+                    Text("放大比例: \(String(format: "%.2f", activeLineScale))x")
+                    Slider(value: $activeLineScale, in: 1.0...1.4, step: 0.05)
+                }
+
+                Toggle("高亮背景", isOn: $activeLineHighlight)
+
+                if activeLineHighlight {
+                    ColorPicker("高亮颜色", selection: $highlightColor)
+                        .onChange(of: highlightColor) { _, c in activeLineHighlightColorHex = c.hexString }
+
+                    HStack {
+                        Text("高亮不透明度: \(Int(activeLineHighlightOpacity * 100))%")
+                        Slider(value: $activeLineHighlightOpacity, in: 0.02...0.3, step: 0.02)
+                    }
+                }
+
+                HStack {
+                    Text("非当前行透明度: \(Int(inactiveLineOpacity * 100))%")
+                    Slider(value: $inactiveLineOpacity, in: 0.1...0.8, step: 0.05)
                 }
             }
 
@@ -161,6 +237,24 @@ struct SettingsView: View {
                     Slider(value: $backgroundOpacity, in: 0.1...1.0, step: 0.05)
                 }
             }
+
+            Section("悬浮歌词条") {
+                HStack {
+                    Text("宽度: \(Int(barWidth))px")
+                    Slider(value: $barWidth, in: 300...1200, step: 10)
+                }
+            }
+
+            Section {
+                Button("恢复所有外观默认值", role: .destructive) {
+                    showResetConfirm = true
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .confirmationDialog("确定要恢复所有外观设置为默认值吗？", isPresented: $showResetConfirm) {
+                Button("恢复默认", role: .destructive) { resetAppearance() }
+                Button("取消", role: .cancel) {}
+            }
         }
         .formStyle(.grouped)
         .padding()
@@ -168,6 +262,7 @@ struct SettingsView: View {
             currentLineColor = Color(hex: currentLineColorHex) ?? .white
             otherLineColor = Color(hex: otherLineColorHex) ?? .gray
             translationLineColor = Color(hex: translationColorHex) ?? .blue
+            highlightColor = Color(hex: activeLineHighlightColorHex) ?? .white
         }
     }
 

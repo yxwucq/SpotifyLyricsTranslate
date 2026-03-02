@@ -35,6 +35,18 @@ struct AppSettings {
     @AppStorage("barWidth") static var barWidth: Double = 600
     @AppStorage("translationCachePath") static var translationCachePath: String = ""
 
+    // 歌词排版
+    @AppStorage("lyricAlignment") static var lyricAlignment: String = "leading"  // leading / center / trailing
+    @AppStorage("translationFontScale") static var translationFontScale: Double = 0.8
+    @AppStorage("lineSpacing") static var lineSpacing: Double = 0
+
+    // 当前行效果
+    @AppStorage("activeLineScale") static var activeLineScale: Double = 1.15
+    @AppStorage("activeLineHighlight") static var activeLineHighlight: Bool = true
+    @AppStorage("activeLineHighlightColorHex") static var activeLineHighlightColorHex: String = "#FFFFFF"
+    @AppStorage("activeLineHighlightOpacity") static var activeLineHighlightOpacity: Double = 0.08
+    @AppStorage("inactiveLineOpacity") static var inactiveLineOpacity: Double = 0.4
+
     static var defaultCacheDir: URL {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
             .appendingPathComponent("SpotifyLyrics/translations", isDirectory: true)

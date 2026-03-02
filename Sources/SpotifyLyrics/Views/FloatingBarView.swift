@@ -8,6 +8,7 @@ struct FloatingBarView: View {
     @AppStorage("currentLineColor") private var currentLineColorHex = "#FFFFFF"
     @AppStorage("translationColor") private var translationColorHex = "#88CCFF"
     @AppStorage("backgroundOpacity") private var backgroundOpacity: Double = 0.75
+    @AppStorage("translationFontScale") private var translationFontScale: Double = 0.8
 
     var body: some View {
         let activeLine = currentLine
@@ -22,7 +23,7 @@ struct FloatingBarView: View {
 
                 if let translation = line.translation {
                     Text(translation)
-                        .font(barFont(size: fontSize * 0.75))
+                        .font(barFont(size: fontSize * translationFontScale))
                         .foregroundStyle(Color(hex: translationColorHex) ?? .blue)
                         .lineLimit(1)
                         .multilineTextAlignment(.center)
@@ -41,10 +42,11 @@ struct FloatingBarView: View {
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity)
         .background(
-            VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
+            VisualEffectBlur(material: .popover, blendingMode: .behindWindow)
                 .opacity(backgroundOpacity)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.2), radius: 12)
         .animation(.easeInOut(duration: 0.25), value: appState.activeLineIndex)
     }
 

@@ -10,10 +10,16 @@ final class ClaudeTranslationProvider: TranslationProviderProtocol {
             throw TranslationError.noApiKey
         }
 
-        let numberedLines = lines.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
+        let numberedLines = lines.enumerated().map { "[\($0.offset + 1)] \($0.element)" }.joined(separator: "\n")
         let prompt = """
-        Translate the following song lyrics to \(language). Return ONLY the translations, one per line, numbered to match. \
-        Keep the same number of lines. Do not add explanations. If a line is empty or instrumental, return an empty line with just the number.
+        Translate the following song lyrics to \(language).
+
+        Rules:
+        - Return EXACTLY \(lines.count) lines, one translation per line
+        - Each line MUST start with its number in brackets like [1], [2], etc.
+        - Translate line by line. Each [N] corresponds to the original [N]. Do NOT merge or split lines
+        - If a line is empty, instrumental, or untranslatable, return just the number tag like: [5]
+        - Do not add any explanation or extra text
 
         \(numberedLines)
         """
@@ -53,10 +59,16 @@ final class OpenAITranslationProvider: TranslationProviderProtocol {
             throw TranslationError.noApiKey
         }
 
-        let numberedLines = lines.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
+        let numberedLines = lines.enumerated().map { "[\($0.offset + 1)] \($0.element)" }.joined(separator: "\n")
         let prompt = """
-        Translate the following song lyrics to \(language). Return ONLY the translations, one per line, numbered to match. \
-        Keep the same number of lines. Do not add explanations.
+        Translate the following song lyrics to \(language).
+
+        Rules:
+        - Return EXACTLY \(lines.count) lines, one translation per line
+        - Each line MUST start with its number in brackets like [1], [2], etc.
+        - Translate line by line. Each [N] corresponds to the original [N]. Do NOT merge or split lines
+        - If a line is empty, instrumental, or untranslatable, return just the number tag like: [5]
+        - Do not add any explanation or extra text
 
         \(numberedLines)
         """
@@ -90,21 +102,44 @@ final class OpenAITranslationProvider: TranslationProviderProtocol {
 }
 
 private func parseNumberedResponse(_ text: String, expectedCount: Int) -> [String] {
-    let lines = text.components(separatedBy: "\n")
-        .map { line in
-            // Strip "1. ", "2. " etc. prefix
-            if let range = line.range(of: #"^\d+\.\s*"#, options: .regularExpression) {
-                return String(line[range.upperBound...])
-            }
-            return line
-        }
-        .filter { !$0.isEmpty }
+    // Build an array indexed by line number, using [N] tags for alignment
+    var result = Array(repeating: "", count: expectedCount)
+    let rawLines = text.components(separatedBy: "\n")
 
-    // Pad or trim to match expected count
-    if lines.count >= expectedCount {
-        return Array(lines.prefix(expectedCount))
+    let tagPattern = try! NSRegularExpression(pattern: #"^\[(\d+)\]\s*(.*)"#)
+
+    for rawLine in rawLines {
+        let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+        let nsRange = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
+
+        if let match = tagPattern.firstMatch(in: trimmed, range: nsRange),
+           let numRange = Range(match.range(at: 1), in: trimmed),
+           let textRange = Range(match.range(at: 2), in: trimmed),
+           let idx = Int(trimmed[numRange]),
+           idx >= 1, idx <= expectedCount {
+            result[idx - 1] = String(trimmed[textRange])
+        }
     }
-    return lines + Array(repeating: "", count: expectedCount - lines.count)
+
+    // Fallback: if no tags were parsed (model ignored format), try sequential stripping
+    if result.allSatisfy({ $0.isEmpty }) {
+        let fallback = rawLines
+            .map { line in
+                var l = line.trimmingCharacters(in: .whitespaces)
+                // Strip "1. " or "1) " style prefixes
+                if let range = l.range(of: #"^\d+[\.\)]\s*"#, options: .regularExpression) {
+                    l = String(l[range.upperBound...])
+                }
+                return l
+            }
+            .filter { !$0.isEmpty }
+
+        for i in 0..<min(fallback.count, expectedCount) {
+            result[i] = fallback[i]
+        }
+    }
+
+    return result
 }
 
 enum APITestHelper {

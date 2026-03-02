@@ -27,6 +27,10 @@ final class FloatingPanel: NSPanel {
         self.backgroundColor = .clear
         self.hasShadow = true
 
+        self.contentView?.wantsLayer = true
+        self.contentView?.layer?.cornerRadius = 12
+        self.contentView?.layer?.masksToBounds = true
+
         NotificationCenter.default.addObserver(
             self, selector: #selector(windowDidMove),
             name: NSWindow.didMoveNotification, object: self
@@ -105,6 +109,10 @@ final class FloatingBarPanel: NSPanel {
         self.isOpaque = false
         self.backgroundColor = .clear
         self.hasShadow = true
+
+        self.contentView?.wantsLayer = true
+        self.contentView?.layer?.cornerRadius = 16
+        self.contentView?.layer?.masksToBounds = true
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(barDidMove),
