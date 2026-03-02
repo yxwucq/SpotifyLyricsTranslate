@@ -53,10 +53,10 @@ final class SpotifyLyricsProvider {
 
         var errorDescription: String? {
             switch self {
-            case .networkError: "网络错误"
-            case .unauthorized: "Spotify 认证失败"
-            case .noLyrics: "该曲目无歌词"
-            case .parseError: "歌词解析失败"
+            case .networkError: L.errNetworkError
+            case .unauthorized: L.errSpotifyAuthFailed
+            case .noLyrics: L.noLyricsForTrack
+            case .parseError: L.errLyricsParseError
             }
         }
     }

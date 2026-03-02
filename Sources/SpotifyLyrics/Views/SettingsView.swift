@@ -44,11 +44,13 @@ struct SettingsView: View {
     @State private var cacheInfo: String = ""
     @State private var isClearing = false
 
+    @AppStorage("appLanguage") private var appLanguage = "zh-Hans"
+
     var body: some View {
         TabView {
-            generalTab.tabItem { Label("通用", systemImage: "gear") }
-            appearanceTab.tabItem { Label("外观", systemImage: "paintbrush") }
-            credentialsTab.tabItem { Label("凭证", systemImage: "key") }
+            generalTab.tabItem { Label(L.tabGeneral, systemImage: "gear") }
+            appearanceTab.tabItem { Label(L.tabAppearance, systemImage: "paintbrush") }
+            credentialsTab.tabItem { Label(L.tabCredentials, systemImage: "key") }
         }
         .frame(width: 450, height: 520)
         .onAppear { loadCredentials() }
@@ -56,54 +58,62 @@ struct SettingsView: View {
 
     private var generalTab: some View {
         Form {
-            Section("歌词源") {
-                Picker("来源", selection: $lyricsSource) {
+            Section(L.appLanguageLabel) {
+                Picker(L.appLanguageLabel, selection: $appLanguage) {
+                    ForEach(AppLanguage.allCases, id: \.rawValue) {
+                        Text($0.displayName).tag($0.rawValue)
+                    }
+                }
+            }
+
+            Section(L.lyricsSource) {
+                Picker(L.source, selection: $lyricsSource) {
                     ForEach(LyricsSource.allCases, id: \.rawValue) {
                         Text($0.rawValue).tag($0.rawValue)
                     }
                 }
             }
 
-            Section("翻译") {
-                Toggle("启用翻译", isOn: $translationEnabled)
+            Section(L.translation) {
+                Toggle(L.enableTranslationToggle, isOn: $translationEnabled)
 
-                Picker("翻译服务", selection: $translationProvider) {
+                Picker(L.translationService, selection: $translationProvider) {
                     ForEach(TranslationProvider.allCases, id: \.rawValue) {
                         Text($0.rawValue).tag($0.rawValue)
                     }
                 }
 
-                Picker("目标语言", selection: $targetLanguage) {
+                Picker(L.targetLanguage, selection: $targetLanguage) {
                     ForEach(AppSettings.supportedLanguages, id: \.code) { lang in
                         Text(lang.name).tag(lang.code)
                     }
                 }
             }
 
-            Section("翻译缓存") {
+            Section(L.translationCache) {
                 HStack {
-                    TextField("缓存路径（留空使用默认）", text: $translationCachePath)
+                    TextField(L.cachePathPlaceholder, text: $translationCachePath)
                         .textFieldStyle(.roundedBorder)
-                    Button("选择…") {
+                    Button(L.choose) {
                         let panel = NSOpenPanel()
                         panel.canChooseFiles = false
                         panel.canChooseDirectories = true
                         panel.canCreateDirectories = true
-                        panel.prompt = "选择缓存文件夹"
+                        panel.prompt = L.chooseCacheFolder
                         if panel.runModal() == .OK, let url = panel.url {
                             translationCachePath = url.path
                         }
                     }
                     if !translationCachePath.isEmpty {
-                        Button("重置") { translationCachePath = "" }
+                        Button(L.reset) { translationCachePath = "" }
                     }
                 }
-                Text("默认: ~/Library/Caches/SpotifyLyrics/translations/")
+                Text("\(L.defaultCachePath)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
                 HStack {
-                    Text(cacheInfo.isEmpty ? "加载中…" : cacheInfo)
+                    Text(cacheInfo.isEmpty ? L.loading : cacheInfo)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -119,7 +129,7 @@ struct SettingsView: View {
                             if isClearing {
                                 ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
                             }
-                            Text("清除缓存")
+                            Text(L.clearCache)
                         }
                     }
                     .disabled(isClearing)
@@ -133,12 +143,12 @@ struct SettingsView: View {
 
     private func refreshCacheInfo() async {
         guard let cache = AppState.shared?.translationCache else {
-            cacheInfo = "缓存不可用"
+            cacheInfo = L.cacheUnavailable
             return
         }
         let info = await cache.cacheSize()
         let sizeStr = ByteCountFormatter.string(fromByteCount: info.totalBytes, countStyle: .file)
-        cacheInfo = "\(info.fileCount) 首歌曲，共 \(sizeStr)"
+        cacheInfo = L.cacheInfo(count: info.fileCount, size: sizeStr)
     }
 
     private func resetAppearance() {
@@ -166,94 +176,94 @@ struct SettingsView: View {
 
     private var appearanceTab: some View {
         Form {
-            Section("字体") {
-                Picker("字体族", selection: $fontFamily) {
-                    Text("系统默认").tag("System")
+            Section(L.font) {
+                Picker(L.fontFamily, selection: $fontFamily) {
+                    Text(L.systemDefault).tag("System")
                     ForEach(availableFonts, id: \.self) { font in
                         Text(font).tag(font)
                     }
                 }
 
                 HStack {
-                    Text("字号: \(Int(fontSize))pt")
+                    Text(L.fontSize(Int(fontSize)))
                     Slider(value: $fontSize, in: 12...48, step: 1)
                 }
             }
 
-            Section("歌词排版") {
-                Picker("对齐方式", selection: $lyricAlignment) {
-                    Text("左对齐").tag("leading")
-                    Text("居中").tag("center")
-                    Text("右对齐").tag("trailing")
+            Section(L.lyricsLayout) {
+                Picker(L.alignment, selection: $lyricAlignment) {
+                    Text(L.alignLeft).tag("leading")
+                    Text(L.alignCenter).tag("center")
+                    Text(L.alignRight).tag("trailing")
                 }
 
                 HStack {
-                    Text("翻译字号: \(Int(translationFontScale * 100))%")
+                    Text(L.translationFontScale(Int(translationFontScale * 100)))
                     Slider(value: $translationFontScale, in: 0.6...1.0, step: 0.05)
                 }
 
                 HStack {
-                    Text("行间距: \(Int(lineSpacing))pt")
+                    Text(L.lineSpacing(Int(lineSpacing)))
                     Slider(value: $lineSpacing, in: 0...20, step: 1)
                 }
             }
 
-            Section("当前行效果") {
+            Section(L.activeLineEffects) {
                 HStack {
-                    Text("放大比例: \(String(format: "%.2f", activeLineScale))x")
+                    Text(L.scaleRatio(String(format: "%.2f", activeLineScale)))
                     Slider(value: $activeLineScale, in: 1.0...1.4, step: 0.05)
                 }
 
-                Toggle("高亮背景", isOn: $activeLineHighlight)
+                Toggle(L.highlightBackground, isOn: $activeLineHighlight)
 
                 if activeLineHighlight {
-                    ColorPicker("高亮颜色", selection: $highlightColor)
+                    ColorPicker(L.highlightColor, selection: $highlightColor)
                         .onChange(of: highlightColor) { _, c in activeLineHighlightColorHex = c.hexString }
 
                     HStack {
-                        Text("高亮不透明度: \(Int(activeLineHighlightOpacity * 100))%")
+                        Text(L.highlightOpacity(Int(activeLineHighlightOpacity * 100)))
                         Slider(value: $activeLineHighlightOpacity, in: 0.02...0.3, step: 0.02)
                     }
                 }
 
                 HStack {
-                    Text("非当前行透明度: \(Int(inactiveLineOpacity * 100))%")
+                    Text(L.inactiveLineOpacity(Int(inactiveLineOpacity * 100)))
                     Slider(value: $inactiveLineOpacity, in: 0.1...0.8, step: 0.05)
                 }
             }
 
-            Section("颜色") {
-                ColorPicker("当前行", selection: $currentLineColor)
+            Section(L.colors) {
+                ColorPicker(L.currentLine, selection: $currentLineColor)
                     .onChange(of: currentLineColor) { _, c in currentLineColorHex = c.hexString }
-                ColorPicker("其他行", selection: $otherLineColor)
+                ColorPicker(L.otherLines, selection: $otherLineColor)
                     .onChange(of: otherLineColor) { _, c in otherLineColorHex = c.hexString }
-                ColorPicker("翻译行", selection: $translationLineColor)
+                ColorPicker(L.translationLine, selection: $translationLineColor)
                     .onChange(of: translationLineColor) { _, c in translationColorHex = c.hexString }
             }
 
-            Section("背景") {
+            Section(L.background) {
                 HStack {
-                    Text("透明度: \(Int(backgroundOpacity * 100))%")
+                    Text(L.opacity(Int(backgroundOpacity * 100)))
                     Slider(value: $backgroundOpacity, in: 0.1...1.0, step: 0.05)
                 }
             }
 
-            Section("悬浮歌词条") {
+            Section(L.floatingBar) {
                 HStack {
-                    Text("宽度: \(Int(barWidth))px")
+                    Text(L.barWidth(Int(barWidth)))
                     Slider(value: $barWidth, in: 300...1200, step: 10)
                 }
             }
 
             Section {
-                Button("恢复所有外观默认值", role: .destructive) {
+                Button(L.resetAllAppearance, role: .destructive) {
                     showResetConfirm = true
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
             }
-            .confirmationDialog("确定要恢复所有外观设置为默认值吗？", isPresented: $showResetConfirm) {
-                Button("恢复默认", role: .destructive) { resetAppearance() }
-                Button("取消", role: .cancel) {}
+            .confirmationDialog(L.resetConfirmMessage, isPresented: $showResetConfirm) {
+                Button(L.resetDefault, role: .destructive) { resetAppearance() }
+                Button(L.cancel, role: .cancel) {}
             }
         }
         .formStyle(.grouped)
@@ -271,10 +281,10 @@ struct SettingsView: View {
             Section("Spotify") {
                 SecureField("sp_dc Cookie", text: $spDc)
                     .onChange(of: spDc) { _, val in KeychainHelper.save(.spotifySpDc, value: val) }
-                Text("从浏览器 Spotify Web Player 的 Cookie 中获取 sp_dc 值")
+                Text(L.spDcHint)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                testButton(label: "测试 Spotify 连接", key: "spotify") {
+                testButton(label: L.testSpotify, key: "spotify") {
                     spotifyTestResult = await APITestHelper.testSpotify()
                 }
                 testResultView(spotifyTestResult)
@@ -283,14 +293,14 @@ struct SettingsView: View {
             Section("Claude API") {
                 SecureField("API Key", text: $claudeKey)
                     .onChange(of: claudeKey) { _, val in KeychainHelper.save(.claudeApiKey, value: val) }
-                TextField("API 地址", text: $claudeBaseURL)
+                TextField(L.apiAddress, text: $claudeBaseURL)
                     .textFieldStyle(.roundedBorder)
-                TextField("模型名称", text: $claudeModel)
+                TextField(L.modelName, text: $claudeModel)
                     .textFieldStyle(.roundedBorder)
-                Text("第三方平台请修改 API 地址，路径 /v1/messages 会自动拼接")
+                Text(L.claudeHint)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                testButton(label: "测试 Claude API", key: "claude") {
+                testButton(label: L.testClaude, key: "claude") {
                     claudeTestResult = await APITestHelper.testClaude()
                 }
                 testResultView(claudeTestResult)
@@ -299,14 +309,14 @@ struct SettingsView: View {
             Section("OpenAI API") {
                 SecureField("API Key", text: $openaiKey)
                     .onChange(of: openaiKey) { _, val in KeychainHelper.save(.openaiApiKey, value: val) }
-                TextField("API 地址", text: $openaiBaseURL)
+                TextField(L.apiAddress, text: $openaiBaseURL)
                     .textFieldStyle(.roundedBorder)
-                TextField("模型名称", text: $openaiModel)
+                TextField(L.modelName, text: $openaiModel)
                     .textFieldStyle(.roundedBorder)
-                Text("第三方平台请修改 API 地址，路径 /v1/chat/completions 会自动拼接")
+                Text(L.openaiHint)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                testButton(label: "测试 OpenAI API", key: "openai") {
+                testButton(label: L.testOpenAI, key: "openai") {
                     openaiTestResult = await APITestHelper.testOpenAI()
                 }
                 testResultView(openaiTestResult)
@@ -327,7 +337,7 @@ struct SettingsView: View {
             HStack(spacing: 6) {
                 if isTesting == key {
                     ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
-                    Text("测试中…")
+                    Text(L.testing)
                 } else {
                     Image(systemName: "network")
                     Text(label)

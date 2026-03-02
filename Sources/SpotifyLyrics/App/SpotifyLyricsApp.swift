@@ -102,7 +102,7 @@ final class SongMeaningWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "歌词大意"
+        window.title = L.songMeaning
         window.titlebarAppearsTransparent = true
         window.isOpaque = false
         window.backgroundColor = .clear
@@ -139,7 +139,7 @@ struct SongMeaningView: View {
                     HStack(spacing: 8) {
                         ProgressView()
                             .controlSize(.small)
-                        Text("正在解读…")
+                        Text(L.interpreting)
                             .foregroundStyle(.secondary)
                     }
                 } else if let meaning = appState.songMeaning {
@@ -157,7 +157,7 @@ struct SongMeaningView: View {
                                     Image(systemName: "chevron.right")
                                         .font(.caption)
                                         .rotationEffect(.degrees(showBackground ? 90 : 0))
-                                    Text("创作背景")
+                                    Text(L.creativeBackground)
                                         .fontWeight(.medium)
                                     Spacer()
                                 }
@@ -186,7 +186,7 @@ struct SongMeaningView: View {
                                     Image(systemName: "chevron.right")
                                         .font(.caption)
                                         .rotationEffect(.degrees(showMetaphors ? 90 : 0))
-                                    Text("意象与隐喻")
+                                    Text(L.imageryAndMetaphor)
                                         .fontWeight(.medium)
                                     Spacer()
                                 }
@@ -204,7 +204,7 @@ struct SongMeaningView: View {
                         .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
                     }
                 } else {
-                    Text("暂无解读内容")
+                    Text(L.noMeaningContent)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -236,7 +236,7 @@ final class SettingsWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "SpotifyLyrics 设置"
+        window.title = L.settingsWindowTitle
         window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false

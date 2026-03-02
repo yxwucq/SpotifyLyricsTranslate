@@ -21,7 +21,7 @@ final class AppState {
     var lyrics: [LyricLine] = []
     var activeLineIndex: Int = 0
     var lyricsSource: String = ""
-    var statusMessage: String = "等待 Spotify 播放…"
+    var statusMessage: String = L.waitingForSpotify
     var isTranslating: Bool = false
     var songMeaning: SongMeaning?
     var isFetchingMeaning: Bool = false
@@ -52,11 +52,11 @@ final class AppState {
     func onTrackChanged() async {
         guard let track = playerMonitor.currentTrack else {
             lyrics = []
-            statusMessage = "Spotify 未在播放"
+            statusMessage = L.spotifyNotPlaying
             return
         }
 
-        statusMessage = "正在获取歌词…"
+        statusMessage = L.fetchingLyrics
         lyrics = []
         activeLineIndex = 0
 
@@ -71,9 +71,9 @@ final class AppState {
                 await translateLyrics(track: track)
             }
         case .noLyrics:
-            statusMessage = "该曲目无歌词"
+            statusMessage = L.noLyricsForTrack
         case .error(let msg):
-            statusMessage = "获取歌词失败: \(msg)"
+            statusMessage = L.fetchLyricsFailed(msg)
         }
     }
 
@@ -131,13 +131,13 @@ final class AppState {
             } catch {
                 lastError = error
                 if attempt < maxRetries {
-                    statusMessage = "翻译失败，正在重试 (\(attempt)/\(maxRetries))…"
+                    statusMessage = L.translationRetrying(attempt, maxRetries)
                     try? await Task.sleep(for: .seconds(Double(attempt)))
                 }
             }
         }
 
-        statusMessage = "翻译失败: \(lastError?.localizedDescription ?? "未知错误")"
+        statusMessage = L.translationFailed(lastError?.localizedDescription ?? L.unknownError)
     }
 
     private func lyricsMatchTargetLanguage(_ target: String) -> Bool {
@@ -195,13 +195,13 @@ final class AppState {
             } catch {
                 lastError = error
                 if attempt < maxRetries {
-                    statusMessage = "解读失败，正在重试 (\(attempt)/\(maxRetries))…"
+                    statusMessage = L.meaningRetrying(attempt, maxRetries)
                     try? await Task.sleep(for: .seconds(Double(attempt)))
                 }
             }
         }
 
-        songMeaning = SongMeaning(summary: "解读失败: \(lastError?.localizedDescription ?? "未知错误")")
+        songMeaning = SongMeaning(summary: L.meaningFailed(lastError?.localizedDescription ?? L.unknownError))
     }
 
     func toggleTranslation() async {

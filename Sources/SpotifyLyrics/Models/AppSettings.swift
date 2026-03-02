@@ -12,6 +12,7 @@ enum LyricsSource: String, CaseIterable {
 }
 
 struct AppSettings {
+    @AppStorage("appLanguage") static var appLanguage: String = "zh-Hans"
     @AppStorage("fontFamily") static var fontFamily: String = "System"
     @AppStorage("fontSize") static var fontSize: Double = 20
     @AppStorage("currentLineColor") static var currentLineColorHex: String = "#FFFFFF"

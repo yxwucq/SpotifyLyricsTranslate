@@ -50,9 +50,9 @@ actor SpotifyAuthService {
 
         var errorDescription: String? {
             switch self {
-            case .noSpDcCookie: "请在设置中配置 Spotify sp_dc Cookie"
-            case .tokenRequestFailed: "获取 Spotify Token 失败，请检查 sp_dc 是否有效"
-            case .invalidResponse: "Spotify 返回格式异常"
+            case .noSpDcCookie: L.errNoSpDcCookie
+            case .tokenRequestFailed: L.errTokenRequestFailed
+            case .invalidResponse: L.errSpotifyInvalidResponse
             }
         }
     }

@@ -145,11 +145,11 @@ private func parseNumberedResponse(_ text: String, expectedCount: Int) -> [Strin
 enum APITestHelper {
     static func testClaude() async -> (success: Bool, message: String) {
         guard let apiKey = KeychainHelper.load(.claudeApiKey), !apiKey.isEmpty else {
-            return (false, "未配置 API Key")
+            return (false, L.noApiKeyConfigured)
         }
         let baseURL = AppSettings.claudeBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard let url = URL(string: "\(baseURL)/v1/messages") else {
-            return (false, "API 地址无效")
+            return (false, L.invalidApiUrl)
         }
         let body: [String: Any] = [
             "model": AppSettings.claudeModel,
@@ -167,26 +167,26 @@ enum APITestHelper {
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
-                return (false, "无响应")
+                return (false, L.noResponse)
             }
             if http.statusCode == 200 {
-                return (true, "连接成功 (\(baseURL), 模型: \(AppSettings.claudeModel))")
+                return (true, L.connectionSuccess(baseURL, model: AppSettings.claudeModel))
             }
             let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             let errMsg = (json?["error"] as? [String: Any])?["message"] as? String
-            return (false, "HTTP \(http.statusCode): \(errMsg ?? "未知错误")")
+            return (false, L.httpError(http.statusCode, message: errMsg))
         } catch {
-            return (false, "网络错误: \(error.localizedDescription)")
+            return (false, L.networkError(error.localizedDescription))
         }
     }
 
     static func testOpenAI() async -> (success: Bool, message: String) {
         guard let apiKey = KeychainHelper.load(.openaiApiKey), !apiKey.isEmpty else {
-            return (false, "未配置 API Key")
+            return (false, L.noApiKeyConfigured)
         }
         let baseURL = AppSettings.openaiBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard let url = URL(string: "\(baseURL)/v1/chat/completions") else {
-            return (false, "API 地址无效")
+            return (false, L.invalidApiUrl)
         }
         let body: [String: Any] = [
             "model": AppSettings.openaiModel,
@@ -203,22 +203,22 @@ enum APITestHelper {
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
-                return (false, "无响应")
+                return (false, L.noResponse)
             }
             if http.statusCode == 200 {
-                return (true, "连接成功 (\(baseURL), 模型: \(AppSettings.openaiModel))")
+                return (true, L.connectionSuccess(baseURL, model: AppSettings.openaiModel))
             }
             let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             let errMsg = (json?["error"] as? [String: Any])?["message"] as? String
-            return (false, "HTTP \(http.statusCode): \(errMsg ?? "未知错误")")
+            return (false, L.httpError(http.statusCode, message: errMsg))
         } catch {
-            return (false, "网络错误: \(error.localizedDescription)")
+            return (false, L.networkError(error.localizedDescription))
         }
     }
 
     static func testSpotify() async -> (success: Bool, message: String) {
         guard let spDc = KeychainHelper.load(.spotifySpDc), !spDc.isEmpty else {
-            return (false, "未配置 sp_dc Cookie")
+            return (false, L.noSpDcConfigured)
         }
         var request = URLRequest(url: URL(string: "https://open.spotify.com/get_access_token?reason=transport&productType=web_player")!)
         request.setValue("sp_dc=\(spDc)", forHTTPHeaderField: "Cookie")
@@ -228,18 +228,18 @@ enum APITestHelper {
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
-                return (false, "无响应")
+                return (false, L.noResponse)
             }
             if http.statusCode == 200 {
                 let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
                 if json?["accessToken"] as? String != nil {
-                    return (true, "认证成功")
+                    return (true, L.authSuccess)
                 }
-                return (false, "返回数据异常")
+                return (false, L.abnormalResponse)
             }
-            return (false, "HTTP \(http.statusCode): 认证失败，请检查 sp_dc")
+            return (false, L.authFailed(http.statusCode))
         } catch {
-            return (false, "网络错误: \(error.localizedDescription)")
+            return (false, L.networkError(error.localizedDescription))
         }
     }
 }
@@ -249,9 +249,9 @@ enum TranslationError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noApiKey: "请在设置中配置 API Key"
-        case .apiError: "翻译 API 调用失败"
-        case .parseError: "翻译结果解析失败"
+        case .noApiKey: L.errNoApiKey
+        case .apiError: L.errTranslationApiFailed
+        case .parseError: L.errTranslationParseFailed
         }
     }
 }

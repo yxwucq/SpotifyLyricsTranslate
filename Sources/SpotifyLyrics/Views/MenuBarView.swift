@@ -23,7 +23,7 @@ struct MenuBarView: View {
 
                 Divider()
             } else {
-                Text("Spotify 未在播放")
+                Text(L.spotifyNotPlaying)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
@@ -35,7 +35,7 @@ struct MenuBarView: View {
                 onSetDisplayMode(.window)
             } label: {
                 HStack {
-                    Text("歌词窗口")
+                    Text(L.lyricsWindow)
                     Spacer()
                     if displayMode == .window {
                         Image(systemName: "checkmark")
@@ -49,7 +49,7 @@ struct MenuBarView: View {
                 onSetDisplayMode(.bar)
             } label: {
                 HStack {
-                    Text("悬浮歌词条")
+                    Text(L.floatingBar)
                     Spacer()
                     if displayMode == .bar {
                         Image(systemName: "checkmark")
@@ -63,7 +63,7 @@ struct MenuBarView: View {
                 onSetDisplayMode(.hidden)
             } label: {
                 HStack {
-                    Text("隐藏歌词")
+                    Text(L.hideLyrics)
                     Spacer()
                     if displayMode == .hidden {
                         Image(systemName: "checkmark")
@@ -74,13 +74,13 @@ struct MenuBarView: View {
 
             Divider()
 
-            Button(appState.isTranslating ? "正在翻译…" : (AppSettings.translationEnabled ? "关闭翻译" : "开启翻译")) {
+            Button(appState.isTranslating ? L.translating : (AppSettings.translationEnabled ? L.disableTranslation : L.enableTranslation)) {
                 Task { await appState.toggleTranslation() }
             }
             .disabled(appState.isTranslating)
             .padding(.horizontal, 4)
 
-            Button(appState.isFetchingMeaning ? "正在解读…" : "歌词大意") {
+            Button(appState.isFetchingMeaning ? L.interpreting : L.songMeaning) {
                 Task {
                     await appState.fetchSongMeaning()
                     onShowMeaning()
@@ -91,7 +91,7 @@ struct MenuBarView: View {
 
             Divider()
 
-            Button("设置…") {
+            Button(L.settings) {
                 onOpenSettings()
             }
             .keyboardShortcut(",", modifiers: .command)
@@ -99,7 +99,7 @@ struct MenuBarView: View {
 
             Divider()
 
-            Button("退出") {
+            Button(L.quit) {
                 NSApp.terminate(nil)
             }
             .keyboardShortcut("q", modifiers: .command)

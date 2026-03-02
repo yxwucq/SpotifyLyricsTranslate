@@ -209,8 +209,8 @@ final class LRCLIBProvider {
 
         var errorDescription: String? {
             switch self {
-            case .invalidURL: "URL 构造失败"
-            case .noLyrics: "LRCLIB 未找到歌词"
+            case .invalidURL: L.errInvalidURL
+            case .noLyrics: L.errLRCLIBNoLyrics
             }
         }
     }

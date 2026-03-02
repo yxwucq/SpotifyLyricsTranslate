@@ -31,7 +31,7 @@ struct LyricsContentView: View {
                         HStack(spacing: 8) {
                             ProgressView()
                                 .scaleEffect(0.7)
-                            Text("正在翻译…")
+                            Text(L.translating)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

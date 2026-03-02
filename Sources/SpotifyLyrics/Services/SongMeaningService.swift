@@ -119,9 +119,9 @@ enum SongMeaningError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noApiKey: "请在设置中配置 API Key"
-        case .apiError: "API 调用失败"
-        case .parseError: "结果解析失败"
+        case .noApiKey: L.errSongMeaningNoApiKey
+        case .apiError: L.errSongMeaningApiFailed
+        case .parseError: L.errSongMeaningParseFailed
         }
     }
 }
