@@ -6,8 +6,8 @@ enum AppLanguage: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .zhHans: "简体中文"
-        case .en: "English"
+        case .zhHans: "简体中文 (Chinese)"
+        case .en: "English (英文)"
         }
     }
 }
@@ -56,7 +56,7 @@ enum L {
     }
 
     // MARK: - Settings > Language
-    static var appLanguageLabel: String { en ? "Language" : "界面语言" }
+    static var appLanguageLabel: String { en ? "Language / 语言" : "语言 / Language" }
 
     // MARK: - Settings > Appearance
     static var font: String { en ? "Font" : "字体" }

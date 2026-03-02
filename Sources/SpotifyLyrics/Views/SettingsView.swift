@@ -44,7 +44,7 @@ struct SettingsView: View {
     @State private var cacheInfo: String = ""
     @State private var isClearing = false
 
-    @AppStorage("appLanguage") private var appLanguage = "zh-Hans"
+    @AppStorage("appLanguage") private var appLanguage = "en"
 
     var body: some View {
         TabView {
