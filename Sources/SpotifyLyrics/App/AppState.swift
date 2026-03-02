@@ -2,6 +2,8 @@ import SwiftUI
 
 @Observable
 final class AppState {
+    static weak var shared: AppState?
+
     let playerMonitor = SpotifyPlayerMonitor()
     let authService = SpotifyAuthService()
     let translationCache = TranslationCache()
@@ -20,12 +22,15 @@ final class AppState {
     var lyricsSource: String = ""
     var statusMessage: String = "等待 Spotify 播放…"
     var isTranslating: Bool = false
+    var songMeaning: SongMeaning?
+    var isFetchingMeaning: Bool = false
     var showLyricsWindow: Bool = true
     var showFloatingBar: Bool = false
 
     private var trackObserver: Any?
 
     func start() {
+        AppState.shared = self
         if lyricsService == nil { setup() }
         playerMonitor.startMonitoring()
         trackObserver = NotificationCenter.default.addObserver(
@@ -110,13 +115,25 @@ final class AppState {
         case .openai: OpenAITranslationProvider()
         }
 
-        do {
-            let translations = try await provider.translate(lines: textsToTranslate, to: language)
-            await translationCache.set(trackId: track.id, language: language, translations: translations)
-            applyTranslations(translations)
-        } catch {
-            statusMessage = "翻译失败: \(error.localizedDescription)"
+        let maxRetries = 3
+        var lastError: Error?
+
+        for attempt in 1...maxRetries {
+            do {
+                let translations = try await provider.translate(lines: textsToTranslate, to: language)
+                await translationCache.set(trackId: track.id, language: language, translations: translations)
+                applyTranslations(translations)
+                return
+            } catch {
+                lastError = error
+                if attempt < maxRetries {
+                    statusMessage = "翻译失败，正在重试 (\(attempt)/\(maxRetries))…"
+                    try? await Task.sleep(for: .seconds(Double(attempt)))
+                }
+            }
         }
+
+        statusMessage = "翻译失败: \(lastError?.localizedDescription ?? "未知错误")"
     }
 
     private func applyTranslations(_ translations: [String]) {
@@ -127,6 +144,36 @@ final class AppState {
 
     func retryLyrics() async {
         await onTrackChanged()
+    }
+
+    func fetchSongMeaning() async {
+        guard let track = playerMonitor.currentTrack, !lyrics.isEmpty else { return }
+
+        isFetchingMeaning = true
+        defer { isFetchingMeaning = false }
+
+        let searchContext = await DuckDuckGoSearch.search(track: track)
+
+        let maxRetries = 3
+        var lastError: Error?
+
+        for attempt in 1...maxRetries {
+            do {
+                let raw = try await SongMeaningGenerator.generate(
+                    track: track, lyrics: lyrics, searchContext: searchContext
+                )
+                songMeaning = SongMeaning.parse(raw)
+                return
+            } catch {
+                lastError = error
+                if attempt < maxRetries {
+                    statusMessage = "解读失败，正在重试 (\(attempt)/\(maxRetries))…"
+                    try? await Task.sleep(for: .seconds(Double(attempt)))
+                }
+            }
+        }
+
+        songMeaning = SongMeaning(summary: "解读失败: \(lastError?.localizedDescription ?? "未知错误")")
     }
 
     func toggleTranslation() async {

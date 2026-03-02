@@ -33,6 +33,19 @@ struct AppSettings {
     @AppStorage("barX") static var barX: Double = -1  // -1 means center
     @AppStorage("barY") static var barY: Double = 80
     @AppStorage("barWidth") static var barWidth: Double = 600
+    @AppStorage("translationCachePath") static var translationCachePath: String = ""
+
+    static var defaultCacheDir: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("SpotifyLyrics/translations", isDirectory: true)
+    }
+
+    static var effectiveCacheDir: URL {
+        if translationCachePath.isEmpty {
+            return defaultCacheDir
+        }
+        return URL(fileURLWithPath: translationCachePath, isDirectory: true)
+    }
 
     static var translationProviderEnum: TranslationProvider {
         get { TranslationProvider(rawValue: translationProviderRaw) ?? .claude }

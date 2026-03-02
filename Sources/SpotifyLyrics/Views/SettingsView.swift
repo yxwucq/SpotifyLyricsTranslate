@@ -24,10 +24,14 @@ struct SettingsView: View {
     @State private var otherLineColor: Color = .gray
     @State private var translationLineColor: Color = .blue
 
+    @AppStorage("translationCachePath") private var translationCachePath = ""
+
     @State private var claudeTestResult: (success: Bool, message: String)?
     @State private var openaiTestResult: (success: Bool, message: String)?
     @State private var spotifyTestResult: (success: Bool, message: String)?
     @State private var isTesting: String?  // "claude" | "openai" | "spotify"
+    @State private var cacheInfo: String = ""
+    @State private var isClearing = false
 
     var body: some View {
         TabView {
@@ -64,9 +68,66 @@ struct SettingsView: View {
                     }
                 }
             }
+
+            Section("翻译缓存") {
+                HStack {
+                    TextField("缓存路径（留空使用默认）", text: $translationCachePath)
+                        .textFieldStyle(.roundedBorder)
+                    Button("选择…") {
+                        let panel = NSOpenPanel()
+                        panel.canChooseFiles = false
+                        panel.canChooseDirectories = true
+                        panel.canCreateDirectories = true
+                        panel.prompt = "选择缓存文件夹"
+                        if panel.runModal() == .OK, let url = panel.url {
+                            translationCachePath = url.path
+                        }
+                    }
+                    if !translationCachePath.isEmpty {
+                        Button("重置") { translationCachePath = "" }
+                    }
+                }
+                Text("默认: ~/Library/Caches/SpotifyLyrics/translations/")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack {
+                    Text(cacheInfo.isEmpty ? "加载中…" : cacheInfo)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button(role: .destructive) {
+                        isClearing = true
+                        Task {
+                            await AppState.shared?.translationCache.clearCache()
+                            await refreshCacheInfo()
+                            isClearing = false
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if isClearing {
+                                ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
+                            }
+                            Text("清除缓存")
+                        }
+                    }
+                    .disabled(isClearing)
+                }
+            }
         }
         .formStyle(.grouped)
         .padding()
+        .onAppear { Task { await refreshCacheInfo() } }
+    }
+
+    private func refreshCacheInfo() async {
+        guard let cache = AppState.shared?.translationCache else {
+            cacheInfo = "缓存不可用"
+            return
+        }
+        let info = await cache.cacheSize()
+        let sizeStr = ByteCountFormatter.string(fromByteCount: info.totalBytes, countStyle: .file)
+        cacheInfo = "\(info.fileCount) 首歌曲，共 \(sizeStr)"
     }
 
     private var appearanceTab: some View {

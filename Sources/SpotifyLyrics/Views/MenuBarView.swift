@@ -5,6 +5,7 @@ struct MenuBarView: View {
     let displayMode: DisplayMode
     let onSetDisplayMode: (DisplayMode) -> Void
     let onOpenSettings: () -> Void
+    let onShowMeaning: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -77,6 +78,15 @@ struct MenuBarView: View {
                 Task { await appState.toggleTranslation() }
             }
             .disabled(appState.isTranslating)
+            .padding(.horizontal, 4)
+
+            Button(appState.isFetchingMeaning ? "正在解读…" : "歌词大意") {
+                Task {
+                    await appState.fetchSongMeaning()
+                    onShowMeaning()
+                }
+            }
+            .disabled(appState.isFetchingMeaning || appState.playerMonitor.currentTrack == nil || appState.lyrics.isEmpty)
             .padding(.horizontal, 4)
 
             Divider()

@@ -2,24 +2,29 @@ import Foundation
 
 actor TranslationCache {
     private var memoryCache: [String: [String]] = [:]
-    private let cacheDir: URL
+    private var cacheDir: URL
 
     init() {
-        let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("SpotifyLyrics/translations", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        self.cacheDir = dir
+        self.cacheDir = AppSettings.effectiveCacheDir
+        try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+    }
+
+    func updateCacheDir() {
+        let newDir = AppSettings.effectiveCacheDir
+        if newDir != cacheDir {
+            cacheDir = newDir
+            memoryCache.removeAll()
+            try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        }
     }
 
     func get(trackId: String, language: String) -> [String]? {
         let key = "\(trackId)_\(language)"
 
-        // Check memory cache
         if let cached = memoryCache[key] {
             return cached
         }
 
-        // Check disk cache
         let file = cacheDir.appendingPathComponent("\(key).json")
         if let data = try? Data(contentsOf: file),
            let lines = try? JSONDecoder().decode([String].self, from: data) {
@@ -34,10 +39,36 @@ actor TranslationCache {
         let key = "\(trackId)_\(language)"
         memoryCache[key] = translations
 
-        // Write to disk
         let file = cacheDir.appendingPathComponent("\(key).json")
         if let data = try? JSONEncoder().encode(translations) {
             try? data.write(to: file)
+        }
+    }
+
+    func cacheSize() -> (fileCount: Int, totalBytes: Int64) {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: [.fileSizeKey]) else {
+            return (0, 0)
+        }
+        var total: Int64 = 0
+        var count = 0
+        for file in files where file.pathExtension == "json" {
+            count += 1
+            if let attrs = try? fm.attributesOfItem(atPath: file.path),
+               let size = attrs[.size] as? Int64 {
+                total += size
+            }
+        }
+        return (count, total)
+    }
+
+    func clearCache() {
+        memoryCache.removeAll()
+        let fm = FileManager.default
+        if let files = try? fm.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil) {
+            for file in files where file.pathExtension == "json" {
+                try? fm.removeItem(at: file)
+            }
         }
     }
 }
