@@ -15,6 +15,7 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 cp "$BUILD_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/"
 cp "Sources/SpotifyLyrics/Info.plist" "$APP_BUNDLE/Contents/"
+cp "Sources/SpotifyLyrics/Resources/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/"
 
 # Create PkgInfo
 echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"

@@ -9,7 +9,7 @@ let package = Package(
         .executableTarget(
             name: "SpotifyLyrics",
             path: "Sources/SpotifyLyrics",
-            exclude: ["Info.plist"],
+            exclude: ["Info.plist", "Resources/AppIcon.icns"],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate",
                               "-Xlinker", "__TEXT",
