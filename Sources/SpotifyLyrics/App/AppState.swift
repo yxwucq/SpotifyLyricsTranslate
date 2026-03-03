@@ -124,12 +124,21 @@ final class AppState {
 
         for attempt in 1...maxRetries {
             do {
-                let translations = try await provider.translate(lines: textsToTranslate, to: language)
+                var translations = Array(repeating: "", count: textsToTranslate.count)
+                let stream = provider.streamTranslate(lines: textsToTranslate, to: language)
+
+                for try await (index, text) in stream {
+                    guard index >= 0, index < lyrics.count else { continue }
+                    translations[index] = text
+                    lyrics[index].translation = text.isEmpty ? nil : text
+                }
+
                 await translationCache.set(trackId: track.id, language: language, translations: translations)
-                applyTranslations(translations)
                 return
             } catch {
                 lastError = error
+                // Clear partial translations on failure before retry
+                for i in lyrics.indices { lyrics[i].translation = nil }
                 if attempt < maxRetries {
                     statusMessage = L.translationRetrying(attempt, maxRetries)
                     try? await Task.sleep(for: .seconds(Double(attempt)))

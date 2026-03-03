@@ -1,5 +1,9 @@
 import SwiftUI
 
+enum AppVersion {
+    static let current = "1.1.0-dev"
+}
+
 enum TranslationProvider: String, CaseIterable {
     case claude = "Claude"
     case openai = "OpenAI"

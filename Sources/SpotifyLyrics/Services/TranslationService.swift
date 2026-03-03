@@ -2,6 +2,7 @@ import Foundation
 
 protocol TranslationProviderProtocol {
     func translate(lines: [String], to language: String) async throws -> [String]
+    func streamTranslate(lines: [String], to language: String) -> AsyncThrowingStream<(Int, String), Error>
 }
 
 final class ClaudeTranslationProvider: TranslationProviderProtocol {
@@ -51,6 +52,106 @@ final class ClaudeTranslationProvider: TranslationProviderProtocol {
 
         return parseNumberedResponse(text, expectedCount: lines.count)
     }
+
+    func streamTranslate(lines: [String], to language: String) -> AsyncThrowingStream<(Int, String), Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    guard let apiKey = KeychainHelper.load(.claudeApiKey), !apiKey.isEmpty else {
+                        throw TranslationError.noApiKey
+                    }
+
+                    let numberedLines = lines.enumerated().map { "[\($0.offset + 1)] \($0.element)" }.joined(separator: "\n")
+                    let prompt = """
+                    Translate the following song lyrics to \(language).
+
+                    Rules:
+                    - Return EXACTLY \(lines.count) lines, one translation per line
+                    - Each line MUST start with its number in brackets like [1], [2], etc.
+                    - Translate line by line. Each [N] corresponds to the original [N]. Do NOT merge or split lines
+                    - If a line is empty, instrumental, or untranslatable, return just the number tag like: [5]
+                    - Do not add any explanation or extra text
+
+                    \(numberedLines)
+                    """
+
+                    let body: [String: Any] = [
+                        "model": AppSettings.claudeModel,
+                        "max_tokens": 4096,
+                        "stream": true,
+                        "messages": [["role": "user", "content": prompt]]
+                    ]
+
+                    let baseURL = AppSettings.claudeBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                    var request = URLRequest(url: URL(string: "\(baseURL)/v1/messages")!)
+                    request.httpMethod = "POST"
+                    request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+                    request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                        throw TranslationError.apiError
+                    }
+
+                    var buffer = ""
+                    let tagPattern = try! NSRegularExpression(pattern: #"^\[(\d+)\]\s*(.*)"#)
+                    var emittedLines = Set<Int>()
+
+                    for try await line in bytes.lines {
+                        guard line.hasPrefix("data: ") else { continue }
+                        let payload = String(line.dropFirst(6))
+                        guard payload != "[DONE]",
+                              let data = payload.data(using: .utf8),
+                              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+
+                        // Claude SSE: {"type":"content_block_delta","delta":{"type":"text_delta","text":"..."}}
+                        guard let delta = json["delta"] as? [String: Any],
+                              let text = delta["text"] as? String else { continue }
+
+                        buffer += text
+
+                        // Parse completed lines from buffer
+                        while let newlineRange = buffer.range(of: "\n") {
+                            let completedLine = String(buffer[buffer.startIndex..<newlineRange.lowerBound])
+                            buffer = String(buffer[newlineRange.upperBound...])
+
+                            let trimmed = completedLine.trimmingCharacters(in: .whitespaces)
+                            let nsRange = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
+                            if let match = tagPattern.firstMatch(in: trimmed, range: nsRange),
+                               let numRange = Range(match.range(at: 1), in: trimmed),
+                               let textRange = Range(match.range(at: 2), in: trimmed),
+                               let idx = Int(trimmed[numRange]),
+                               idx >= 1, idx <= lines.count,
+                               !emittedLines.contains(idx) {
+                                emittedLines.insert(idx)
+                                continuation.yield((idx - 1, String(trimmed[textRange])))
+                            }
+                        }
+                    }
+
+                    // Handle remaining buffer (last line without trailing newline)
+                    if !buffer.isEmpty {
+                        let trimmed = buffer.trimmingCharacters(in: .whitespaces)
+                        let nsRange = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
+                        if let match = tagPattern.firstMatch(in: trimmed, range: nsRange),
+                           let numRange = Range(match.range(at: 1), in: trimmed),
+                           let textRange = Range(match.range(at: 2), in: trimmed),
+                           let idx = Int(trimmed[numRange]),
+                           idx >= 1, idx <= lines.count,
+                           !emittedLines.contains(idx) {
+                            continuation.yield((idx - 1, String(trimmed[textRange])))
+                        }
+                    }
+
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
 }
 
 final class OpenAITranslationProvider: TranslationProviderProtocol {
@@ -98,6 +199,104 @@ final class OpenAITranslationProvider: TranslationProviderProtocol {
         }
 
         return parseNumberedResponse(text, expectedCount: lines.count)
+    }
+
+    func streamTranslate(lines: [String], to language: String) -> AsyncThrowingStream<(Int, String), Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    guard let apiKey = KeychainHelper.load(.openaiApiKey), !apiKey.isEmpty else {
+                        throw TranslationError.noApiKey
+                    }
+
+                    let numberedLines = lines.enumerated().map { "[\($0.offset + 1)] \($0.element)" }.joined(separator: "\n")
+                    let prompt = """
+                    Translate the following song lyrics to \(language).
+
+                    Rules:
+                    - Return EXACTLY \(lines.count) lines, one translation per line
+                    - Each line MUST start with its number in brackets like [1], [2], etc.
+                    - Translate line by line. Each [N] corresponds to the original [N]. Do NOT merge or split lines
+                    - If a line is empty, instrumental, or untranslatable, return just the number tag like: [5]
+                    - Do not add any explanation or extra text
+
+                    \(numberedLines)
+                    """
+
+                    let body: [String: Any] = [
+                        "model": AppSettings.openaiModel,
+                        "stream": true,
+                        "messages": [["role": "user", "content": prompt]]
+                    ]
+
+                    let baseURL = AppSettings.openaiBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                    var request = URLRequest(url: URL(string: "\(baseURL)/v1/chat/completions")!)
+                    request.httpMethod = "POST"
+                    request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                        throw TranslationError.apiError
+                    }
+
+                    var buffer = ""
+                    let tagPattern = try! NSRegularExpression(pattern: #"^\[(\d+)\]\s*(.*)"#)
+                    var emittedLines = Set<Int>()
+
+                    for try await line in bytes.lines {
+                        guard line.hasPrefix("data: ") else { continue }
+                        let payload = String(line.dropFirst(6))
+                        guard payload != "[DONE]",
+                              let data = payload.data(using: .utf8),
+                              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+
+                        // OpenAI SSE: {"choices":[{"delta":{"content":"..."}}]}
+                        guard let choices = json["choices"] as? [[String: Any]],
+                              let delta = choices.first?["delta"] as? [String: Any],
+                              let text = delta["content"] as? String else { continue }
+
+                        buffer += text
+
+                        while let newlineRange = buffer.range(of: "\n") {
+                            let completedLine = String(buffer[buffer.startIndex..<newlineRange.lowerBound])
+                            buffer = String(buffer[newlineRange.upperBound...])
+
+                            let trimmed = completedLine.trimmingCharacters(in: .whitespaces)
+                            let nsRange = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
+                            if let match = tagPattern.firstMatch(in: trimmed, range: nsRange),
+                               let numRange = Range(match.range(at: 1), in: trimmed),
+                               let textRange = Range(match.range(at: 2), in: trimmed),
+                               let idx = Int(trimmed[numRange]),
+                               idx >= 1, idx <= lines.count,
+                               !emittedLines.contains(idx) {
+                                emittedLines.insert(idx)
+                                continuation.yield((idx - 1, String(trimmed[textRange])))
+                            }
+                        }
+                    }
+
+                    // Handle remaining buffer
+                    if !buffer.isEmpty {
+                        let trimmed = buffer.trimmingCharacters(in: .whitespaces)
+                        let nsRange = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
+                        if let match = tagPattern.firstMatch(in: trimmed, range: nsRange),
+                           let numRange = Range(match.range(at: 1), in: trimmed),
+                           let textRange = Range(match.range(at: 2), in: trimmed),
+                           let idx = Int(trimmed[numRange]),
+                           idx >= 1, idx <= lines.count,
+                           !emittedLines.contains(idx) {
+                            continuation.yield((idx - 1, String(trimmed[textRange])))
+                        }
+                    }
+
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
     }
 }
 

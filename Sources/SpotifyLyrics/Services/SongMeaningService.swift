@@ -69,10 +69,14 @@ struct SongMeaning {
         var background = ""
         var metaphors = ""
 
-        // Split by section markers: [歌曲大意] [创作背景] [意象与隐喻]
-        let sections = text.components(separatedBy: "\n")
+        let lines = text.components(separatedBy: "\n")
         var current = ""
         var buffer: [String] = []
+
+        // Match both English markers and legacy Chinese markers
+        let summaryMarkers = ["[Summary]", "[歌曲大意]"]
+        let backgroundMarkers = ["[Background]", "[创作背景]"]
+        let imageryMarkers = ["[Imagery]", "[意象与隐喻]"]
 
         func flush() {
             let content = buffer.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -85,22 +89,28 @@ struct SongMeaning {
             buffer = []
         }
 
-        for line in sections {
+        func matchMarker(_ trimmed: String, _ markers: [String]) -> String? {
+            for marker in markers {
+                if trimmed.hasPrefix(marker) {
+                    return trimmed.replacingOccurrences(of: marker, with: "").trimmingCharacters(in: .whitespaces)
+                }
+            }
+            return nil
+        }
+
+        for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("[歌曲大意]") {
+            if let rest = matchMarker(trimmed, summaryMarkers) {
                 flush()
                 current = "summary"
-                let rest = trimmed.replacingOccurrences(of: "[歌曲大意]", with: "").trimmingCharacters(in: .whitespaces)
                 if !rest.isEmpty { buffer.append(rest) }
-            } else if trimmed.hasPrefix("[创作背景]") {
+            } else if let rest = matchMarker(trimmed, backgroundMarkers) {
                 flush()
                 current = "background"
-                let rest = trimmed.replacingOccurrences(of: "[创作背景]", with: "").trimmingCharacters(in: .whitespaces)
                 if !rest.isEmpty { buffer.append(rest) }
-            } else if trimmed.hasPrefix("[意象与隐喻]") {
+            } else if let rest = matchMarker(trimmed, imageryMarkers) {
                 flush()
                 current = "metaphors"
-                let rest = trimmed.replacingOccurrences(of: "[意象与隐喻]", with: "").trimmingCharacters(in: .whitespaces)
                 if !rest.isEmpty { buffer.append(rest) }
             } else {
                 buffer.append(line)
@@ -130,46 +140,85 @@ enum SongMeaningGenerator {
     static func generate(track: Track, lyrics: [LyricLine], searchContext: String) async throws -> String {
         let lyricsText = lyrics.map(\.text).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.joined(separator: "\n")
         let language = AppSettings.targetLanguage
+        let isChinese = language.hasPrefix("zh")
 
         let contextSection: String
-        if searchContext.isEmpty {
-            contextSection = "（无搜索结果，请基于你的知识和歌词内容分析）"
+        if isChinese {
+            contextSection = searchContext.isEmpty
+                ? "（无搜索结果，请基于你的知识和歌词内容分析）"
+                : "以下是关于这首歌的搜索参考资料：\n\(searchContext)"
         } else {
-            contextSection = "以下是关于这首歌的搜索参考资料：\n\(searchContext)"
+            contextSection = searchContext.isEmpty
+                ? "(No search results available. Please analyze based on your knowledge and the lyrics.)"
+                : "Here are some search references about this song:\n\(searchContext)"
         }
 
-        let prompt = """
-        你是一位有亲和力的音乐评论家。请为以下歌曲撰写解读。
+        let prompt: String
+        if isChinese {
+            let langNote = language == "zh-Hant" ? "\n- 请使用繁體中文输出" : ""
+            prompt = """
+            你是一位有亲和力的音乐评论家。请为以下歌曲撰写解读。
 
-        写作要求：
-        - 语言流畅自然，可以有文艺感但必须通俗易懂，像跟朋友聊天一样讲清楚
-        - 全程使用中文表达，不要夹杂英文单词或短语
-        - 遇到歌词中的外语关键词时，用括号附上简要释义，例如「歌词中的 'nevermore'（永不再来）表达了……」
-        - 用自己的话阐述含义，不要大段引用或反复摘录原歌词
-        - 不要使用 Markdown 格式符号
+            写作要求：
+            - 语言流畅自然，可以有文艺感但必须通俗易懂，像跟朋友聊天一样讲清楚
+            - 全程使用中文表达，不要夹杂英文单词或短语
+            - 遇到歌词中的外语关键词时，用括号附上简要释义，例如「歌词中的 'nevermore'（永不再来）表达了……」
+            - 用自己的话阐述含义，不要大段引用或反复摘录原歌词
+            - 不要使用 Markdown 格式符号\(langNote)
 
-        严格按以下格式输出三个段落，每段以方括号标记开头：
+            严格按以下格式输出三个段落，每段以方括号标记开头：
 
-        [歌曲大意]
-        用 2-3 句话概括这首歌在讲什么、传达怎样的情感。
+            [Summary]
+            用 2-3 句话概括这首歌在讲什么、传达怎样的情感。
 
-        [创作背景]
-        介绍歌曲的创作背景、灵感来源、发行故事等。如果不确定，可以简要说明并侧重歌词分析。
+            [Background]
+            介绍歌曲的创作背景、灵感来源、发行故事等。如果不确定，可以简要说明并侧重歌词分析。
 
-        [意象与隐喻]
-        分析歌词中值得玩味的意象和深层含义，如有外语歌词请解释关键词含义。
+            [Imagery]
+            分析歌词中值得玩味的意象和深层含义，如有外语歌词请解释关键词含义。
 
-        歌曲：\(track.name)
-        歌手：\(track.artist)
-        专辑：\(track.album)
+            歌曲：\(track.name)
+            歌手：\(track.artist)
+            专辑：\(track.album)
 
-        歌词：
-        \(lyricsText)
+            歌词：
+            \(lyricsText)
 
-        \(contextSection)
+            \(contextSection)
+            """
+        } else {
+            let langName = languageName(for: language)
+            prompt = """
+            You are a friendly and insightful music critic. Write an interpretation of the following song.
 
-        请用\(languageName(for: language))输出。
-        """
+            Writing guidelines:
+            - Write in a natural, engaging tone — like explaining the song to a friend
+            - Use your own words to explain meanings; do not quote or repeat large chunks of lyrics
+            - When encountering key foreign-language words in the lyrics, briefly explain them in parentheses
+            - Do not use Markdown formatting
+            - Write entirely in \(langName)
+
+            Output exactly three sections, each starting with a bracketed marker:
+
+            [Summary]
+            Summarize what the song is about and the emotions it conveys in 2-3 sentences.
+
+            [Background]
+            Describe the creative background, inspiration, and release story. If unsure, briefly note that and focus on lyric analysis.
+
+            [Imagery]
+            Analyze notable imagery, metaphors, and deeper meanings in the lyrics. Explain key foreign-language words if present.
+
+            Song: \(track.name)
+            Artist: \(track.artist)
+            Album: \(track.album)
+
+            Lyrics:
+            \(lyricsText)
+
+            \(contextSection)
+            """
+        }
 
         switch AppSettings.translationProviderEnum {
         case .claude:

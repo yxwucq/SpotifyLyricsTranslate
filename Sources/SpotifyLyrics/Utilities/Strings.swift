@@ -186,4 +186,9 @@ enum L {
     static var errSongMeaningNoApiKey: String { en ? "Please configure API Key in Settings" : "请在设置中配置 API Key" }
     static var errSongMeaningApiFailed: String { en ? "API call failed" : "API 调用失败" }
     static var errSongMeaningParseFailed: String { en ? "Failed to parse result" : "结果解析失败" }
+
+    // MARK: - About
+    static var tabAbout: String { en ? "About" : "关于" }
+    static var aboutVersion: String { en ? "Version" : "版本" }
+    static var aboutDescription: String { en ? "A macOS menu bar app that displays real-time synced lyrics with translation for Spotify." : "一款 macOS 菜单栏应用，为 Spotify 提供实时同步歌词与翻译。" }
 }

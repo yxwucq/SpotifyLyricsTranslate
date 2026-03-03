@@ -13,6 +13,7 @@ struct SpotifyLyricsApp: App {
     @State private var barController = FloatingBarController()
     @State private var settingsWindowController = SettingsWindowController()
     @State private var meaningWindowController = SongMeaningWindowController()
+    @State private var aboutWindowController = AboutWindowController()
     @State private var uiTimer: Timer?
     @State private var started = false
     @State private var displayMode: DisplayMode = .window
@@ -24,7 +25,8 @@ struct SpotifyLyricsApp: App {
                 displayMode: displayMode,
                 onSetDisplayMode: setDisplayMode,
                 onOpenSettings: openSettings,
-                onShowMeaning: showMeaning
+                onShowMeaning: showMeaning,
+                onShowAbout: showAbout
             )
             .onAppear {
                 if !started {
@@ -76,6 +78,10 @@ struct SpotifyLyricsApp: App {
 
     private func showMeaning() {
         meaningWindowController.show(appState: appState)
+    }
+
+    private func showAbout() {
+        aboutWindowController.show()
     }
 }
 
@@ -243,5 +249,60 @@ final class SettingsWindowController {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.window = window
+    }
+}
+
+final class AboutWindowController {
+    private var window: NSWindow?
+
+    func show() {
+        if let window, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let view = AboutView()
+        let hostingView = NSHostingView(rootView: view)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 280, height: 200)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 280, height: 200),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "\(L.tabAbout) SpotifyLyrics"
+        window.contentView = hostingView
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        self.window = window
+    }
+}
+
+struct AboutView: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "music.note.list")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+
+            Text("SpotifyLyrics")
+                .font(.title3.bold())
+
+            Text("\(L.aboutVersion) \(AppVersion.current)")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Text(L.aboutDescription)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
     }
 }

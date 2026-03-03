@@ -6,6 +6,7 @@ struct MenuBarView: View {
     let onSetDisplayMode: (DisplayMode) -> Void
     let onOpenSettings: () -> Void
     let onShowMeaning: () -> Void
+    let onShowAbout: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -95,6 +96,11 @@ struct MenuBarView: View {
                 onOpenSettings()
             }
             .keyboardShortcut(",", modifiers: .command)
+            .padding(.horizontal, 4)
+
+            Button("\(L.tabAbout) SpotifyLyrics") {
+                onShowAbout()
+            }
             .padding(.horizontal, 4)
 
             Divider()
